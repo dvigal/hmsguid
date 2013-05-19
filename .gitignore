@@ -4,4 +4,9 @@ cabal-dev
 *.hi
 *.chi
 *.chs.h
+*.c
+*.h
+*.dll
+*.exe
+test.hs
 .virthualenv
