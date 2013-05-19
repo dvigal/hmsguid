@@ -1,12 +1,14 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 
-module Guid where
+module Guid (GUID, guid) where
 
 import Control.Monad (forM_)
 
 import System.Win32.Types
-import Foreign.Ptr (plusPtr)
+import Foreign.C.Types
+import Foreign.Ptr
 import Foreign.Storable
+import Foreign.Marshal.Alloc (malloc)
 import Foreign.Marshal.Array (peekArray)
 
 #include "Rpc.h"
@@ -36,4 +38,19 @@ instance Storable GUID where
 		(#poke GUID, Data3) ptr d3
 		let ptrOff = ptr `plusPtr` (#offset GUID, Data4)
 		forM_ (zip [0..7] d4) (\(idx,val) -> pokeElemOff ptrOff idx val)
-					
+
+#include "Objbase.h"
+
+foreign import stdcall unsafe "CoCreateGuid"
+	c_CoCreateGuid :: Ptr GUID -> IO (CULong)
+
+guid :: IO (Maybe GUID)
+guid = do
+	ptr <- malloc::IO (Ptr GUID)
+	r <- c_CoCreateGuid ptr
+	let s_ok = 0
+	if r == s_ok
+		then peek ptr >>= (\g -> return (Just g))
+		else return Nothing	
+
+
