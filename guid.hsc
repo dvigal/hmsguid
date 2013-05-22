@@ -16,10 +16,10 @@ import Foreign.Marshal.Array (peekArray)
 #let alignment t = "%lu", (unsigned long)offsetof(struct {char x__; t (y__); }, y__)
 
 data GUID = GUID 
-	{ 	dataOne 	:: DWORD
-	 ,	dataTwo 	:: WORD
-	 ,	dataThree 	:: WORD
-	 , 	dataFour 	:: [BYTE]
+	{ 	dataOne 	:: !DWORD
+	 ,	dataTwo 	:: !WORD
+	 ,	dataThree 	:: !WORD
+	 , 	dataFour 	:: ![BYTE]
 	} deriving (Show)
 
 instance Storable GUID where
