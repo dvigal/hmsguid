@@ -1,15 +1,14 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 
-module Guid (GUID, guid) where
-
-import Control.Monad (forM_)
+module Guid (GUID, emptyGuid, generateGuid, createGuid, createGuidPtr) where
 
 import System.Win32.Types
+import System.Win32.Mem (zeroMemory)
 import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.Storable
 import Foreign.Marshal.Alloc (malloc)
-import Foreign.Marshal.Array (peekArray)
+import Foreign.Marshal.Array (peekArray, pokeArray)
 
 #include "Rpc.h"
 
@@ -19,7 +18,7 @@ data GUID = GUID
 	{ 	dataOne 	:: !DWORD
 	 ,	dataTwo 	:: !WORD
 	 ,	dataThree 	:: !WORD
-	 , 	dataFour 	:: ![BYTE]
+	 , 	dataFour 	:: [BYTE]
 	} deriving (Show)
 
 instance Storable GUID where
@@ -37,15 +36,23 @@ instance Storable GUID where
 		(#poke GUID, Data2) ptr d2
 		(#poke GUID, Data3) ptr d3
 		let ptrOff = ptr `plusPtr` (#offset GUID, Data4)
-		forM_ (zip [0..7] d4) (\(idx,val) -> pokeElemOff ptrOff idx val)
+		pokeArray ptrOff d4
+		return ()
+
+emptyGuid :: IO (GUID)
+emptyGuid = do
+	ptr <- malloc::IO (Ptr GUID)
+	let szt = (fromIntegral #size GUID)::DWORD
+	zeroMemory ptr szt
+	peek ptr
 
 #include "Objbase.h"
 
 foreign import stdcall unsafe "CoCreateGuid"
 	c_CoCreateGuid :: Ptr GUID -> IO (CULong)
 
-guid :: IO (Maybe GUID)
-guid = do
+generateGuid :: IO (Maybe GUID) 
+generateGuid = do
 	ptr <- malloc::IO (Ptr GUID)
 	r <- c_CoCreateGuid ptr
 	let s_ok = 0
@@ -53,4 +60,11 @@ guid = do
 		then peek ptr >>= (\g -> return (Just g))
 		else return Nothing	
 
+createGuid :: DWORD -> WORD -> WORD -> [BYTE] -> GUID
+createGuid d1 d2 d3 d4 | length d4 > 8 = error "Not valid length of list. Must be less than or equals to 8"
+					   | otherwise   = GUID d1 d2 d3 d4
 
+createGuidPtr :: GUID -> IO (Ptr GUID)
+createGuidPtr guid = do
+	ptr <- malloc::IO (Ptr GUID)
+	poke ptr guid >> return ptr		    
